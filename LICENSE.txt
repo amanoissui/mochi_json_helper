@@ -1,0 +1,24 @@
+ライセンス
+本アドオン
+
+MochiFitter JSON補助ツール
+
+Copyright (C) 2026 amanoissui
+
+本ソフトウェアは GNU General Public License v3.0 (GPL-3.0) の下で配布されています。
+
+GPLライセンス全文:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+利用しているソフトウェア
+
+本アドオンは以下のGPLソフトウェアを利用しています。
+
+MochiFitter-BlenderAddon-kai
+Copyright (C) Mega-Gorilla
+License: GPL v3
+Repository:
+https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai
+
+本アドオンは MochiFitter-BlenderAddon-kai の機能を利用して
+pose_basis および posediff JSON の生成を行います。
