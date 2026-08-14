@@ -1,7 +1,7 @@
 bl_info = {
     "name": "MochiFitter JSON補助ツール",
     "author": "amanoissui",
-    "version": (1, 0),
+    "version": (2, 0),
     "blender": (3, 0, 0),
     "category": "Object",
     "description": (
@@ -31,7 +31,6 @@ from mathutils import Matrix
 # =========================================================
 
 def find_mochifitter():
-    """sys.modules から SaveAndApplyFieldAuto を探す"""
     import sys
     for mod_name, mod in sys.modules.items():
         if 'SaveAndApplyFieldAuto' in mod_name:
@@ -40,7 +39,6 @@ def find_mochifitter():
 
 
 def resolve_avatar_data_path(out_dir, avatar_name):
-    """avatar_data_{名前}.json を出力フォルダから検索"""
     candidates = [
         os.path.join(out_dir, f"avatar_data_{avatar_name}.json"),
         os.path.join(out_dir, f"avatar_data_{avatar_name.lower()}.json"),
@@ -58,10 +56,6 @@ def matrix_to_list(matrix):
 def call_mochi_save_pose(mochi, armature_obj, context,
                          filename, avatar_data_fname,
                          out_dir, blend_dir):
-    """
-    MochiFitter の save_armature_pose() を呼び出し、
-    結果を out_dir へ移動する。
-    """
     avatar_tmp = None
     try:
         if os.path.abspath(blend_dir) != os.path.abspath(out_dir):
@@ -93,11 +87,6 @@ def call_mochi_save_pose(mochi, armature_obj, context,
 
 
 def compute_posediff(template_pose, source_pose):
-    """
-    pose_basis_template.json と ソースの現在ポーズ の差分を計算。
-    delta_matrix = template_delta.inverted() @ source_delta
-    その他フィールドはソースの値をそのまま使用。
-    """
     diff_data = {}
     common = set(template_pose.keys()) & set(source_pose.keys())
     for humanoid_name in sorted(common):
@@ -118,7 +107,6 @@ def compute_posediff(template_pose, source_pose):
 
 
 def resolve_dirs(props):
-    """出力フォルダと blend_dir を解決"""
     out_dir = props.json_output_dir.strip()
     if not out_dir:
         if bpy.data.filepath:
@@ -284,7 +272,6 @@ class MOCHI_OT_generate_posediff(bpy.types.Operator):
             self.report({'ERROR'}, "出力フォルダが未指定で .blend が未保存です")
             return {'CANCELLED'}
 
-        # pose_basis_template.json を読み込む
         template_path = os.path.join(out_dir, "pose_basis_template.json")
         if not os.path.exists(template_path):
             self.report({'ERROR'}, f"pose_basis_template.json が見つかりません（フォルダ: {out_dir}）")
@@ -293,7 +280,6 @@ class MOCHI_OT_generate_posediff(bpy.types.Operator):
         with open(template_path, 'r', encoding='utf-8') as f:
             template_pose = json.load(f)
 
-        # ソースの avatar_data を検索
         src_data_path = resolve_avatar_data_path(out_dir, src_name)
         if not src_data_path:
             self.report({'ERROR'}, f"avatar_data_{src_name}.json が見つかりません")
@@ -301,7 +287,6 @@ class MOCHI_OT_generate_posediff(bpy.types.Operator):
 
         avatar_data_fname = os.path.basename(src_data_path)
 
-        # ソースの現在ポーズを MochiFitter 経由で取得
         try:
             tmp_fname = f"_vf_tmp_posediff_{src_name.lower()}.json"
             call_mochi_save_pose(
@@ -317,7 +302,6 @@ class MOCHI_OT_generate_posediff(bpy.types.Operator):
             self.report({'ERROR'}, f"ソースポーズ取得エラー: {e}")
             return {'CANCELLED'}
 
-        # posediff 計算・保存
         diff_data  = compute_posediff(template_pose, source_pose)
         diff_fname = f"posediff_template_to_{tgt_name.lower()}.json"
         diff_path  = os.path.join(out_dir, diff_fname)
@@ -341,99 +325,128 @@ class VIEW3D_PT_mochi_json(bpy.types.Panel):
     bl_idname      = "VIEW3D_PT_mochi_json"
     bl_space_type  = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category    = 'MochiJSON'
+    bl_category    = 'MochiJSON補助'
 
     def draw(self, context):
         layout = self.layout
         props  = context.scene.mochi_json_props
 
         import sys
-        mochi_found = any('SaveAndApplyFieldAuto' in k for k in sys.modules.keys())
+        mochi_found = any(
+            'SaveAndApplyFieldAuto' in k
+            for k in sys.modules.keys()
+        )
 
         # MochiFitter 検出状態
         box_status = layout.box()
         if mochi_found:
             box_status.label(text="MochiFitter 検出済 ✓", icon='CHECKMARK')
         else:
-            box_status.label(text="MochiFitter 未検出 → 全機能使用不可", icon='ERROR')
+            box_status.label(
+                text="MochiFitter 未検出 → 全機能使用不可",
+                icon='ERROR'
+            )
             box_status.label(
                 text="MochiFitter-BlenderAddon-kai を有効化してください",
                 icon='INFO'
             )
 
-        # 共通設定
+        # 共通設定（出力フォルダ、ターゲット名/ソース名）
         box_common = layout.box()
         box_common.label(text="共通設定", icon='PREFERENCES')
-        box_common.prop(props, "json_output_dir", text="出力フォルダ")
+        box_common.prop(props, "json_output_dir",     text="出力フォルダ")
+        box_common.prop(props, "source_avatar_name",  text="ソース名")
+        box_common.prop(props, "target_avatar_name",  text="ターゲット名")
 
         out_dir     = props.json_output_dir.strip()
         out_dir_abs = bpy.path.abspath(out_dir) if out_dir else ""
 
-        # pose_basis_template.json の存在確認
         if out_dir_abs:
-            tmpl_path = os.path.join(out_dir_abs, "pose_basis_template.json")
+            tmpl_path   = os.path.join(out_dir_abs, "pose_basis_template.json")
             tmpl_exists = os.path.exists(tmpl_path)
-            box_common.label(
-                text="pose_basis_template.json ✓" if tmpl_exists
-                     else "pose_basis_template.json が見つかりません",
-                icon='CHECKMARK' if tmpl_exists else 'ERROR'
-            )
         else:
             tmpl_exists = False
 
-        box_common.prop(props, "target_avatar_name", text="ターゲット名")
+        tgt_name = props.target_avatar_name.strip()
+        src_name = props.source_avatar_name.strip()
 
-        # ── pose_basis ──────────────────────────────────────
-        box_pb = layout.box()
-        box_pb.label(text="pose_basis 生成", icon='BONE_DATA')
-        box_pb.prop(props, "target_armature", text="ターゲットArmature")
+        # ── ターゲット設定（pose_basis 生成に使用）──────────────
+        box_target = layout.box()
+        box_target.label(text="ターゲット設定（pose_basis 生成に使用）", icon='BONE_DATA')
+        box_target.prop(props, "target_armature", text="ターゲットArmature")
 
-        if out_dir_abs and props.target_avatar_name.strip():
-            found = resolve_avatar_data_path(out_dir_abs, props.target_avatar_name.strip())
-            box_pb.label(
-                text=f"{os.path.basename(found)} ✓" if found
-                     else f"avatar_data_{props.target_avatar_name.strip()}.json が見つかりません",
-                icon='CHECKMARK' if found else 'ERROR'
+        if tgt_name:
+            box_target.label(
+                text=f"生成されるファイル: pose_basis_{tgt_name.lower()}.json",
+                icon='FILE'
             )
 
-        pb_ready = mochi_found and bool(
-            props.target_avatar_name.strip()
-            and props.target_armature
-        )
-        row = box_pb.row()
+        pb_ready = mochi_found and bool(tgt_name and props.target_armature)
+        row = box_target.row()
         row.scale_y = 1.3
         row.enabled = pb_ready
         row.operator("mochi_json.generate_pose_basis", icon='EXPORT')
 
-        # ── posediff ────────────────────────────────────────
-        box_pd = layout.box()
-        box_pd.label(text="posediff 生成（pose_basis_template との差分）", icon='ARMATURE_DATA')
-        box_pd.prop(props, "source_avatar_name", text="ソース名")
-        box_pd.prop(props, "source_armature",    text="ソースArmature（ポーズ編集済み）")
+        # ── ソース設定（posediff 生成に使用）──────────────────
+        box_source = layout.box()
+        box_source.label(text="ソース設定（posediff 生成に使用）", icon='ARMATURE_DATA')
+        box_source.prop(props, "source_armature", text="ソースArmature（ポーズ編集済み）")
 
-        if out_dir_abs and props.source_avatar_name.strip():
-            found_src = resolve_avatar_data_path(out_dir_abs, props.source_avatar_name.strip())
-            box_pd.label(
-                text=f"{os.path.basename(found_src)} ✓" if found_src
-                     else f"avatar_data_{props.source_avatar_name.strip()}.json が見つかりません",
-                icon='CHECKMARK' if found_src else 'ERROR'
+        if tgt_name:
+            box_source.label(
+                text=f"生成されるファイル: posediff_template_to_{tgt_name.lower()}.json",
+                icon='FILE'
             )
 
         pd_ready = mochi_found and tmpl_exists and bool(
-            props.target_avatar_name.strip()
-            and props.source_avatar_name.strip()
-            and props.source_armature
+            tgt_name and src_name and props.source_armature
         )
-        row2 = box_pd.row()
+        row2 = box_source.row()
         row2.scale_y = 1.3
         row2.enabled = pd_ready
         row2.operator("mochi_json.generate_posediff", icon='EXPORT')
 
         if mochi_found and not pd_ready:
             if not tmpl_exists:
-                box_pd.label(text="pose_basis_template.json が必要です", icon='ERROR')
+                box_source.label(
+                    text="pose_basis_template.json が必要です",
+                    icon='ERROR'
+                )
             else:
-                box_pd.label(text="全項目を入力してください", icon='INFO')
+                box_source.label(text="全項目を入力してください", icon='INFO')
+
+        # ── ファイル確認（入力用 avatar_data の有無。出力ファイルと紛らわしいため最下層に配置）──
+        box_files = layout.box()
+        box_files.label(text="ファイル確認", icon='FILE_FOLDER')
+
+        if out_dir_abs:
+            box_files.label(
+                text="pose_basis_template.json ✓" if tmpl_exists
+                     else "pose_basis_template.json が見つかりません",
+                icon='CHECKMARK' if tmpl_exists else 'ERROR'
+            )
+
+        if out_dir_abs and tgt_name:
+            found_tgt = resolve_avatar_data_path(out_dir_abs, tgt_name)
+            box_files.label(
+                text=f"[ターゲット] {os.path.basename(found_tgt)} ✓" if found_tgt
+                     else f"[ターゲット] avatar_data_{tgt_name}.json が見つかりません",
+                icon='CHECKMARK' if found_tgt else 'ERROR'
+            )
+
+        if out_dir_abs and src_name:
+            found_src = resolve_avatar_data_path(out_dir_abs, src_name)
+            box_files.label(
+                text=f"[ソース] {os.path.basename(found_src)} ✓" if found_src
+                     else f"[ソース] avatar_data_{src_name}.json が見つかりません",
+                icon='CHECKMARK' if found_src else 'ERROR'
+            )
+
+        if not out_dir_abs:
+            box_files.label(
+                text="出力フォルダを入力すると表示されます",
+                icon='INFO'
+            )
 
         # ライセンス表記
         box_lic = layout.box()
