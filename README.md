@@ -1,111 +1,91 @@
-# MochiFitter JSON補助ツール (mochi_json_helper)
+# MochiFitter JSON補助ツール
 
-MochiFitter-BlenderAddon-kai を使用して、VRChatアバター向けの
-pose_basis / posediff JSON ファイルを生成する Blender アドオンです。
+MochiFitter-BlenderAddon-kai（GPL v3）を利用して、`pose_basis` JSON と `posediff` JSON の生成を補助する Blender アドオンです。3Dビューポートのサイドバーから、対象アーマチュアの指定とJSON出力をワンクリックで行えます。
 
----
+本アドオンは MochiFitter-BlenderAddon-kai に依存しており、単体では動作しません。
 
-## 概要
+## 動作要件
 
-このアドオンは [MochiFitter-BlenderAddon-kai](https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai) の
-`save_armature_pose()` 関数を呼び出し、以下の JSON ファイルを生成します。
-
-| ファイル | 内容 |
-|---|---|
-| `pose_basis_{アバター名}.json` | ターゲットアーマチュアの現在ポーズ情報 |
-| `posediff_template_to_{アバター名}.json` | `pose_basis_template.json` とソースの現在ポーズの差分 |
-
----
-
-## 必要環境
-
-- Blender 3.0 以上
-- [MochiFitter-BlenderAddon-kai](https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai) がインストール・有効化されていること
-
----
+- Blender 3.0 以降
+- [MochiFitter-BlenderAddon-kai](https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai)（GPL v3）がインストール・有効化されていること
 
 ## インストール
 
-1. このリポジトリから `mochi_json_helper.py` をダウンロード
-2. Blender を起動
-3. `編集` → `プリファレンス` → `アドオン` → `インストール`
-4. ダウンロードした `mochi_json_helper.py` を選択
-5. アドオン一覧で **MochiFitter JSON補助ツール** を有効化
+1. 本アドオンのファイル（`mochi_json_helper.py`）を Blender の「編集 > プリファレンス > アドオン > インストール」から読み込みます。
+2. アドオン一覧で「MochiFitter JSON補助ツール」を有効化します。
+3. MochiFitter-BlenderAddon-kai が別途インストール・有効化されていることを確認します（未検出の場合、本アドオンの機能は使用できません）。
 
-> ⚠️ MochiFitter-BlenderAddon-kai が有効化されていないと、JSON生成機能は使用できません。
+インストール後、3Dビューポートのサイドバー（`N`キーで表示）に「MochiJSON補助」タブが追加されます。
 
----
+## 事前に必要なファイル
 
-## 使い方
+このアドオンは、以下のファイルが出力フォルダ内に存在することを前提に動作します。
+
+- `avatar_data_{アバター名}.json`：MochiFitter側で生成される、各アバターの素体情報ファイル。ターゲット用・ソース用それぞれの名前分が必要です（大文字・小文字どちらのファイル名でも自動検索されます）。
+- `pose_basis_template.json`：`posediff` 生成時の基準ポーズとなるファイル。あらかじめ用意しておくか、本アドオンで生成した `pose_basis_{アバター名}.json` を手動でリネームして配置してください。
+
+## パネルの構成
+
+サイドバーのパネルは、誤操作や誤認識を避けるため以下のように区分されています。
+
+### MochiFitter検出状態
+
+MochiFitter-BlenderAddon-kai が検出されているかどうかを表示します。未検出の場合、以降の全機能が無効化されます。
 
 ### 共通設定
 
-| 項目 | 説明 |
-|---|---|
-| **ターゲット名** | 出力ファイル名に使われるアバター名（自動的に小文字化されます） |
-| **出力フォルダ** | JSON の保存先。`avatar_data_{名前}.json` と `pose_basis_template.json` もここから検索します |
+出力フォルダ、ソース名、ターゲット名を入力します。出力フォルダは JSON の保存先であり、`avatar_data_{名前}.json` や `pose_basis_template.json` の検索先にもなります（未指定の場合は `.blend` ファイルの保存先フォルダが使われます）。ソース名・ターゲット名はそれぞれ `avatar_data_{名前}.json` の自動検索、および出力ファイル名の生成に使われます。
 
-### pose_basis の生成
+このセクションで表示される `pose_basis_template.json` の有無は、内部的な準備状態の確認用です（表示自体は「ファイル確認」セクションにまとめてあります）。
 
-1. Nパネル → `MochiJSON` タブを開く
-2. **出力フォルダ** を指定
-3. **ターゲット名** を入力（例: `Beryl`）
-4. **ターゲットArmature** を指定
-5. **pose_basis を生成** ボタンを押す
+### ターゲット設定（pose_basis 生成に使用）
 
-→ `pose_basis_beryl.json` が出力フォルダに生成されます。
+ターゲットArmature を指定します。ここで選択したアーマチュアの現在のポーズが、`pose_basis` 生成時の対象になります。生成予定のファイル名（`pose_basis_{ターゲット名}.json`）がボタンの上に表示されます。
 
-### posediff の生成
+### ソース設定（posediff 生成に使用）
 
-1. 出力フォルダに `pose_basis_template.json` が存在することを確認
-2. **ソース名** を入力（テンプレートアバターの名前）
-3. **ソースArmature** にポーズ編集済みのアーマチュアを指定
-4. **posediff を生成** ボタンを押す
+ソースArmature（ポーズ編集済み）を指定します。ここで選択したアーマチュアの現在のポーズと `pose_basis_template.json` との差分が、`posediff` 生成時に使われます。生成予定のファイル名（`posediff_template_to_{ターゲット名}.json`）がボタンの上に表示されます。
 
-→ `posediff_template_to_beryl.json` が出力フォルダに生成されます。
+### ファイル確認
 
----
+`pose_basis_template.json` および、ターゲット名・ソース名にそれぞれ対応する `avatar_data_{名前}.json` の有無を、出力ファイルと混同しないよう最下層にまとめて表示します。
 
-## フォルダ構成例
+### ライセンス表記
 
+本アドオンおよび MochiFitter-BlenderAddon-kai のライセンス（GPL v3）を表示します。
 
-```text
-出力フォルダ/
-├── avatar_data_Beryl.json          ← MochiFitter が用意するファイル
-├── avatar_data_template.json       ← MochiFitter が用意するファイル
-├── pose_basis_template.json        ← MochiFitter が用意するファイル
-├── pose_basis_beryl.json           ← このアドオンが生成
-└── posediff_template_to_beryl.json ← このアドオンが生成
-```
+## 使い方
 
----
+### 1. pose_basis の生成
+
+1. 「共通設定」で出力フォルダとターゲット名を入力します。
+2. 出力フォルダに `avatar_data_{ターゲット名}.json` が存在することを確認します（「ファイル確認」セクションで確認できます）。
+3. 「ターゲット設定」でターゲットArmature を指定します。
+4. 「pose_basis を生成」ボタンを押すと、`pose_basis_{ターゲット名}.json` が出力フォルダに生成されます。
+
+生成した `pose_basis_{ターゲット名}.json` を基準ポーズとして使う場合は、`pose_basis_template.json` にリネームして出力フォルダに配置してください。
+
+### 2. posediff の生成
+
+1. 出力フォルダに `pose_basis_template.json` が存在することを確認します。
+2. 「共通設定」でソース名とターゲット名を入力します。
+3. 出力フォルダに `avatar_data_{ソース名}.json` が存在することを確認します。
+4. 「ソース設定」でソースArmature（ポーズを編集した状態のアーマチュア）を指定します。
+5. 「posediff を生成」ボタンを押すと、`pose_basis_template.json` とソースの現在ポーズとの差分が計算され、`posediff_template_to_{ターゲット名}.json` が出力フォルダに生成されます。
+
+出力ファイル名にはターゲット名が使われますが、実際のポーズ差分の計算にはソースArmature の現在ポーズが使われる点に注意してください。
+
+## 生成されるファイル一覧
+
+| 操作 | 生成ファイル名 | 使用データ |
+| --- | --- | --- |
+| pose_basis 生成 | `pose_basis_{ターゲット名}.json` | ターゲットArmature の現在ポーズ + `avatar_data_{ターゲット名}.json` |
+| posediff 生成 | `posediff_template_to_{ターゲット名}.json` | `pose_basis_template.json` とソースArmature の現在ポーズ（`avatar_data_{ソース名}.json` 経由）との差分 |
+
+ファイル名の `{名前}` 部分は自動的に小文字化されます。
 
 ## ライセンス
 
-本アドオンは **GNU General Public License v3.0** の下で配布されます。
+本アドオンは GNU General Public License v3.0 の下で配布されます。MochiFitter-BlenderAddon-kai（Copyright (C) Mega-Gorilla, GPL v3）を利用しています。
 
-Copyrihgt(c) 2025 amanoissui
-
-
-### 使用しているソフトウェア
-
-**MochiFitter-BlenderAddon-kai**
-- Copyright (C) Mega-Gorilla
-- License: GNU General Public License v3.0
-- Repository: https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai
-- 用途: `save_armature_pose()` を `sys.modules` 経由で呼び出し
-
-**Blender Python API**
-- Copyright (C) Blender Foundation
-- License: GNU General Public License v2.0 or later
-- Website: https://www.blender.org
-
-詳細は [LICENSE](./LICENSE) を参照してください。
-
----
-
-## 免責事項
-
-本アドオンは非公式のツールです。
-MochiFitter の仕様変更により動作しなくなる場合があります。
-
+- MochiFitter-BlenderAddon-kai: https://github.com/Mega-Gorilla/MochiFitter-BlenderAddon-kai
